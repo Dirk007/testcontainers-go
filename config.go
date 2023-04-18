@@ -10,8 +10,10 @@ import (
 	"github.com/magiconair/properties"
 )
 
-var tcConfig TestcontainersConfig
-var tcConfigOnce *sync.Once = new(sync.Once)
+var (
+	tcConfig     *TestcontainersConfig
+	tcConfigOnce sync.Once
+)
 
 // TestcontainersConfig represents the configuration for Testcontainers
 // testcontainersConfig {
@@ -27,16 +29,16 @@ type TestcontainersConfig struct {
 
 // ReadConfig reads from testcontainers properties file, storing the result in a singleton instance
 // of the TestcontainersConfig struct
-func ReadConfig() TestcontainersConfig {
+func ReadConfig() *TestcontainersConfig {
 	tcConfigOnce.Do(func() {
 		tcConfig = readConfig()
 
 		if tcConfig.RyukDisabled {
 			ryukDisabledMessage := `
-**********************************************************************************************
-Ryuk has been disabled for the current execution. This can cause unexpected behavior in your environment.
-More on this: https://golang.testcontainers.org/features/garbage_collector/
-**********************************************************************************************`
+	**********************************************************************************************
+	Ryuk has been disabled for the current execution. This can cause unexpected behavior in your environment.
+	More on this: https://golang.testcontainers.org/features/garbage_collector/
+	**********************************************************************************************`
 			Logger.Printf(ryukDisabledMessage)
 			Logger.Printf("\n%+v", tcConfig)
 		}
@@ -45,31 +47,31 @@ More on this: https://golang.testcontainers.org/features/garbage_collector/
 	return tcConfig
 }
 
+func applyEnvironmentConfiguration(config *TestcontainersConfig) *TestcontainersConfig {
+	if dockerHostEnv := os.Getenv("DOCKER_HOST"); dockerHostEnv != "" {
+		config.Host = dockerHostEnv
+	}
+	if config.Host == "" {
+		config.Host = "unix:///var/run/docker.sock"
+	}
+
+	ryukDisabledEnv := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
+	if parseBool(ryukDisabledEnv) {
+		config.RyukDisabled = ryukDisabledEnv == "true"
+	}
+
+	ryukPrivilegedEnv := os.Getenv("TESTCONTAINERS_RYUK_CONTAINER_PRIVILEGED")
+	if parseBool(ryukPrivilegedEnv) {
+		config.RyukPrivileged = ryukPrivilegedEnv == "true"
+	}
+
+	return config
+}
+
 // readConfig reads from testcontainers properties file, if it exists
 // it is possible that certain values get overridden when set as environment variables
-func readConfig() TestcontainersConfig {
-	config := TestcontainersConfig{}
-
-	applyEnvironmentConfiguration := func(config TestcontainersConfig) TestcontainersConfig {
-		if dockerHostEnv := os.Getenv("DOCKER_HOST"); dockerHostEnv != "" {
-			config.Host = dockerHostEnv
-		}
-		if config.Host == "" {
-			config.Host = "unix:///var/run/docker.sock"
-		}
-
-		ryukDisabledEnv := os.Getenv("TESTCONTAINERS_RYUK_DISABLED")
-		if parseBool(ryukDisabledEnv) {
-			config.RyukDisabled = ryukDisabledEnv == "true"
-		}
-
-		ryukPrivilegedEnv := os.Getenv("TESTCONTAINERS_RYUK_CONTAINER_PRIVILEGED")
-		if parseBool(ryukPrivilegedEnv) {
-			config.RyukPrivileged = ryukPrivilegedEnv == "true"
-		}
-
-		return config
-	}
+func readConfig() *TestcontainersConfig {
+	config := &TestcontainersConfig{}
 
 	home, err := os.UserHomeDir()
 	if err != nil {

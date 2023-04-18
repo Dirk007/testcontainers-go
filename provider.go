@@ -147,7 +147,7 @@ func NewDockerProvider(provOpts ...DockerProviderOption) (*DockerProvider, error
 		DockerProviderOptions: o,
 		host:                  tcConfig.Host,
 		client:                c,
-		config:                tcConfig,
+		config:                *tcConfig,
 	}
 
 	// log docker server info only once
